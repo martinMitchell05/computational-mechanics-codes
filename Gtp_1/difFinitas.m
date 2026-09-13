@@ -8,9 +8,8 @@ function T = difFinitas(xnode, model, cb, et)
     % La segunda columna contiene el valor de temperatura, flujo, o coeficiente de convección h dependiendo el dato de la primera columna.
     % La tercera columna será de valor -1 para la condición 1 y 2, y tendrá el valor de temperatura externa en caso de la condición 3.
 
-  %% et : esquema temporal a usar o estado estacionario [tipo, maxIt, tol, dt]
+  %% et : esquema temporal a usar o estado estacionario [tipo, maxIt, tol, dt, lambda]
     % tipo: 0: estacionario - 1: explicito - 2: implicito, si tipo:2 ---> usa dt
-  %% ---> Falta implementar.
 
   % Establecer constantes:
   N = length(xnode);
@@ -30,9 +29,6 @@ function T = difFinitas(xnode, model, cb, et)
   else
     G_vec = G * ones(N, 1);  % G era constate
   end
-
-  %% ---- Ver valor de et ----
-  %% --- switch para valor 'et' ---
 
 
   % ---- Mismas ecuaciones sin importar los bordes ----
@@ -89,8 +85,78 @@ function T = difFinitas(xnode, model, cb, et)
 
   endswitch
 
-  % Resolver sistema de ecuaciones:
-  T = K\f;
+  %% ---- Ver valor de et ----
+  tipo = et(1);
+
+  if tipo == 0
+    % Resolver sistema de ecuaciones: (et == estacionario)
+    T = K\f;
+
+  else % esquema temporal
+
+    maxIt = et(2);
+    tol = et(3);
+    alpha = k/(p*cp);
+    lambda = et(5);
+    if tipo == 1
+      dt = lambda*dx^2/(2*alpha); % dt critico
+    else
+      dt = et(4);
+    endif
+
+    M = (p * cp * dx^2 / k) * ones(N, 1);
+
+    % Tratamiento especial de nodos Dirichlet (no tienen inercia, su valor es fijo)
+    if cb(1, 1) == 1
+      M(1) = 0;
+    end
+    if cb(2, 1) == 1
+      M(end) = 0;
+    end
+
+    M_mat = diag(M);
+
+    % condiciones iniciales
+    T_n = zeros(N, 1);
+    % forzar condiciones si es Dirichlet
+    if cb(1,1) == 1, T_n(1) = cb(1,2); end
+    if cb(2,1) == 1, T_n(end) = cb(2,2); end
+
+
+    for iter = 1:maxIt
+
+      if tipo == 1 % Explicito
+
+        T_sig = zeros(N, 1);
+
+        % Calculamos solo los nodos que tienen derivada temporal (M != 0)
+        idx = (M ~= 0);
+        T_sig(idx) = T_n(idx) + (dt ./ M(idx)) .* (f(idx) - K(idx, :) * T_n);
+
+        % Los nodos Dirichlet (M == 0) simplemente mantienen su valor constante de f
+        idx_D = (M == 0);
+        T_sig(idx_D) = f(idx_D);
+
+      elseif tipo == 2 % Implicito
+
+        A_imp = (M_mat / dt) + K;
+        b_imp = f + (M_mat / dt) * T_n;
+
+        T_sig = A_imp \ b_imp;
+      end
+
+
+      error_n = norm(T_sig - T_n, 2);
+      T_n = T_sig;
+
+      if error_n < tol
+        break;
+      end
+
+    end
+
+    T = T_n;
+  end
 
 endfunction
 
