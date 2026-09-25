@@ -60,13 +60,24 @@ clc; clear all;
 
   plot(xnode, T_impl, 'linewidth', 1.5, 'm', 'DisplayName', 'Implicito')
 
+  % Solucion semi-implicita: Crank-Nicolson
+
+  et = [3 maxIt tol dt lambda];
+
+  tic
+  T_CN = difFinitas(xnode, model, cb, et);
+  t_CN = toc
+
+  plot(xnode, T_CN, 'linewidth', 1.5, 'k--', 'DisplayName', 'Crank-Nicolson')
+
 
   % Calculo de errores:
   error_est_expl = norm(T_est - T_expl, 2);
   error_est_impl = norm(T_est - T_impl, 2);
   error_expl_impl = norm(T_expl - T_impl, 2);
+  error_cn_impl = norm(T_CN - T_impl, 2);
 
-  printf("Errores entre métodos: (norma 2)\nEstacionario - Explicito = {%d}\nEstacionario - Implicito = {%d}\nExplicito - Implicito = {%d}\n\n", error_est_expl, error_est_impl, error_expl_impl)
+  printf("Errores entre métodos: (norma 2)\nEstacionario - Explicito = {%d}\nEstacionario - Implicito = {%d}\nExplicito - Implicito = {%d}\nCrank-Nicolson - Implicito = {%d}\n", error_est_expl, error_est_impl, error_expl_impl, error_cn_impl)
 
 
   % Solucion analitica:
@@ -76,7 +87,7 @@ clc; clear all;
   plot(xnode, sol_a, 'linewidth', 2, 'g--', 'DisplayName', 'Analitica')
   xlabel("xi")
   ylabel("Temperatura")
-  title("Grafica comparacion: Estacionario - Explicito - Implicito - Analitica")
+  title("Grafica comparacion: Estacionario - Explicito - Implicito - CN - Analitica")
   legend('Location', 'southeast')
 
   % Calculo de errores:

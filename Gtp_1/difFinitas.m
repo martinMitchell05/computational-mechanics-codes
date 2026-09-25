@@ -13,7 +13,7 @@ function T = difFinitas(xnode, model, cb, et)
 
   % Establecer constantes:
   N = length(xnode);
-  dx = xnode(2) - xnode(1);
+  dx = diff(xnode(:)); % diff calcula cada diferencia entre los xnode
 
   k = model{1};
   c = model{2};
@@ -32,14 +32,26 @@ function T = difFinitas(xnode, model, cb, et)
 
 
   % ---- Mismas ecuaciones sin importar los bordes ----
+  % paso 'h' para cada lado del nodo
+  hm = dx(1:end-1); % tamaño N-2
+  hp = dx(2:end);   % tamaño N-2
+
   % Armar matriz K
-  K = diag(-ones(N-1,1),-1) + diag((2 + c*dx^2/k)*ones(N,1)) + diag(-ones(N-1,1),1);
+  banda_inf = zeros(N-1, 1);
+  diagonal  = ones(N, 1);
+  banda_sup = zeros(N-1, 1);
+
+  banda_inf(1:N-2) = -2 ./ (hm .* (hp + hm));
+  diagonal(2:N-1) = (2 ./ (hp .* hm)) + c/k;
+  banda_sup(2:N-1) = -2 ./ (hp .* (hp + hm));
+
+  K = diag(banda_inf, -1) + diag(diagonal) + diag(banda_sup, 1);
 
   % Armar vector f
   f = zeros(N,1);
 
   % Reemplazar en nodos interiores:
-  f(2:N-1) = G_vec(2:N-1)/k*dx^2;
+  f(2:N-1) = G_vec(2:N-1)/k;
 
   % ---- Reemplazar ecuaciones de borde ----
   % Borde izquierdo:
@@ -51,16 +63,15 @@ function T = difFinitas(xnode, model, cb, et)
 
     case 2 % Neumann
       q = borde_izq(2);
-      node_fic_K = -2;
-      node_fic_f = G_vec(1)/k*dx^2 - 2*dx*q/k;
+      node_fic_f = G_vec(1)/k - 2*q/(k*dx(1));
       f(1) = node_fic_f;
-      K(1,2) = node_fic_K;
+      K(1,1:2) = [(2/dx(1)^2 + c/k), -2/dx(1)^2];
 
     case 3 % Robin
       T_inf = borde_izq(3);
       h = borde_izq(2);
-      f(1) = G_vec(1)/k*dx^2 + 2 * dx * h * T_inf / k;
-      K(1, 1:2) = [(2 + c*dx^2/k + 2*dx*h/k), -2];
+      f(1) = G_vec(1)/k + 2 * h * T_inf / (k*dx(1));
+      K(1, 1:2) = [(2/(dx(1)^2) + c/k + 2*h/(k*dx(1))), -2/(dx(1)^2)];
 
   endswitch
 
@@ -73,15 +84,15 @@ function T = difFinitas(xnode, model, cb, et)
 
     case 2 % Neumann
       q = borde_der(2);
-      node_fic_f = G_vec(end)/k*dx^2 - 2*dx*q/k;
+      node_fic_f = G_vec(end)/k - 2*q/(k*dx(end));
       f(end) = node_fic_f;
-      K(end, end-1) = -2;
+      K(end, end-1:end) = [-2/dx(end)^2, (2/dx(end)^2 + c/k)];
 
     case 3 % Robin
       T_inf = borde_der(3);
       h = borde_der(2);
-      f(end) = G_vec(end)/k*dx^2 + 2 * dx * h * T_inf / k;
-      K(end, end-1:end) = [-2 (2 + c*dx^2/k + 2*dx*h/k)];
+      f(end) = G_vec(end)/k + 2 * h * T_inf / (k * dx(end));
+      K(end, end-1:end) = [-2/dx(end)^2, (2/dx(end)^2 + c/k + 2*h/(k*dx(end)))];
 
   endswitch
 
@@ -99,12 +110,12 @@ function T = difFinitas(xnode, model, cb, et)
     alpha = k/(p*cp);
     lambda = et(5);
     if tipo == 1
-      dt = lambda*dx^2/(2*alpha); % dt critico
+      dt = lambda * min(dx)^2 / (2*alpha); % dt critico
     else
       dt = et(4);
     endif
 
-    M = (p * cp * dx^2 / k) * ones(N, 1);
+    M = (p * cp / k) * ones(N, 1);
 
     % Tratamiento especial de nodos Dirichlet (no tienen inercia, su valor es fijo)
     if cb(1, 1) == 1
@@ -142,9 +153,42 @@ function T = difFinitas(xnode, model, cb, et)
         A_imp = (M_mat / dt) + K;
         b_imp = f + (M_mat / dt) * T_n;
 
+        % Imponer condiciones Dirichlet (si lo eran)
+        if cb(1,1) == 1
+          A_imp(1, :) = 0; A_imp(1,1) = 1;
+          b_imp(1) = cb(1,2);
+        endif
+        if cb(2,1) == 1
+          A_imp(end, :) = 0; A_imp(end, end) = 1;
+          b_imp(end) = cb(2,2);
+        endif
+
         T_sig = A_imp \ b_imp;
+
+      elseif tipo == 3 % Crank-Nicholson
+
+        A_CN = (M_mat / dt) + 0.5 * K;
+        b_CN = f + ((M_mat / dt) - 0.5 * K) * T_n;
+
+        % Imponer condiciones Dirichlet (si lo eran)
+        if cb(1,1) == 1
+          A_CN(1, :) = 0; A_CN(1,1) = 1;
+          b_CN(1) = cb(1,2);
+        end
+        if cb(2,1) == 1
+          A_CN(end, :) = 0; A_CN(end, end) = 1;
+          b_CN(end) = cb(2,2);
+        end
+
+        T_sig = A_CN \ b_CN;
+
       end
 
+      % Reimponer bordes Dirichlet en el esquema explícito
+      if tipo == 1
+        if cb(1,1) == 1, T_sig(1) = cb(1,2); end
+        if cb(2,1) == 1, T_sig(end) = cb(2,2); end
+      end
 
       error_n = norm(T_sig - T_n, 2);
       T_n = T_sig;
