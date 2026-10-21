@@ -18,11 +18,11 @@ clc; clear all;
   pcp = 1;
   p = 1;
 
-  lambda = 0.97; % un lambda mas bajo puede empeorar el resultado, no mejorar
+  lambda = 0.9; % un lambda mas bajo puede empeorar el resultado, no mejorar
   dt = 0.4; % un dt no excesivamente bajo y da un muy buen resultado
 
-  tol = 1e-7;
-  maxIt = 7000;
+  tol = 1e-9;
+  maxIt = 500;
   % Mientras mas iteraciones (y/o) mas baja tolerancia : mejor va a aproximar el Explicito
   % Pero eso implica que tarde mucho más tiempo para los mismos puntos
 

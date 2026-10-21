@@ -3,5 +3,7 @@
 *.zip
 *.rar
 *.tar.gz
-
+*.png
+*.jpg
+*.jpeg
 

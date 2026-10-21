@@ -5,17 +5,18 @@ clc; clear all;
   L2 = 1;
   T_1 = 0;
 
+  N = 32;
   % T_2 : Robin
   h = 2;
   T_inf = 10;
 
-  pcp = 2;
-  p = 1;
+  cp = 2;
+  ro = 1;
   k = 2;
   c = 2;
-  G = 75;
+  G = 75*ones(N,1);
+  model = {k, c, ro, cp, G};
 
-  N = 32;
   dx = (L2 - L1)/(N-1);
   lambda = 0.9;
   dt = 0.05;
@@ -23,11 +24,11 @@ clc; clear all;
   maxIt = 3000;
 
   xnode = L1:dx:L2;
-  model = {k, c, p, pcp, G};
   cb = [1 T_1 0; 3 h T_inf];
 
   % Resolucion estacionaria:
   et = [0 0 0 0 0];
+##  et = [0 0 0 0];
 
   disp("Resolución por Diferencias Finitas:\n")
   tic
@@ -38,6 +39,8 @@ clc; clear all;
   plot(xnode, T, 'ko-', 'markersize', 7, 'linewidth', 1.5, 'color', 'b', 'DisplayName', 'Estacionaria')
   grid on; hold on;
 
+  printf("Temperatura en nodo final x=L2 (Estacionario): T = %.5f\n", T(end));
+
   % Resolucion explicita:
   et = [1 maxIt tol dt lambda];
   tic
@@ -46,11 +49,15 @@ clc; clear all;
 
   plot(xnode, T, 'linewidth', 1.5, 'r', 'DisplayName', 'Explicito')
 
+  printf("Temperatura en nodo final x=L2 (Explicito): T = %.5f\n", T(end));
+
   % Resolucion implicita:
   et = [2 maxIt tol dt lambda];
   tic
   T = difFinitas(xnode, model, cb, et);
   t_implicito = toc
+
+  printf("Temperatura en nodo final x=L2 (Implicito): T = %.5f\n", T(end));
 
   plot(xnode, T, 'linewidth', 1.5, 'g', 'DisplayName', 'Implicito')
 

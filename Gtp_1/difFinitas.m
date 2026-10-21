@@ -1,4 +1,4 @@
-function T = difFinitas(xnode, model, cb, et)
+function [T, T_vec] = difFinitas(xnode, model, cb, et)
 
   %% xnode : vector de coordenadas
   %% model : vector con constantes del modelo (k, c, p, cp, G)
@@ -9,7 +9,9 @@ function T = difFinitas(xnode, model, cb, et)
     % La tercera columna será de valor -1 para la condición 1 y 2, y tendrá el valor de temperatura externa en caso de la condición 3.
 
   %% et : esquema temporal a usar o estado estacionario [tipo, maxIt, tol, dt, lambda]
-    % tipo: 0: estacionario - 1: explicito - 2: implicito, si tipo:2 ---> usa dt
+    % tipo: 0: estacionario - 1: explicito - 2: implicito - 3: Crank-Nicolson, si tipo:2/3 ---> usa dt
+
+  %% T_vec: guarda las temperaturas en cada paso de tiempo (para esquemas temporales)
 
   % Establecer constantes:
   N = length(xnode);
@@ -102,6 +104,7 @@ function T = difFinitas(xnode, model, cb, et)
   if tipo == 0
     % Resolver sistema de ecuaciones: (et == estacionario)
     T = K\f;
+    T_vec = [];
 
   else % esquema temporal
 
@@ -128,12 +131,20 @@ function T = difFinitas(xnode, model, cb, et)
     M_mat = diag(M);
 
     % condiciones iniciales
-    T_n = zeros(N, 1);
-    % forzar condiciones si es Dirichlet
-    if cb(1,1) == 1, T_n(1) = cb(1,2); end
-    if cb(2,1) == 1, T_n(end) = cb(2,2); end
+    if length(model) >= 6 && ~isempty(model{6})
+      T_n = model{6}(:); % Toma la condición inicial dada
+    else
+      T_n = zeros(N, 1);
+      if cb(1,1) == 1, T_n(1) = cb(1,2); end
+      if cb(2,1) == 1, T_n(end) = cb(2,2); end
+    endif
 
+##    T_n = zeros(N, 1);
+##    % forzar condiciones si es Dirichlet
+##    if cb(1,1) == 1, T_n(1) = cb(1,2); end
+##    if cb(2,1) == 1, T_n(end) = cb(2,2); end
 
+    T_vec = T_n;
     for iter = 1:maxIt
 
       if tipo == 1 % Explicito
@@ -192,6 +203,7 @@ function T = difFinitas(xnode, model, cb, et)
 
       error_n = norm(T_sig - T_n, 2);
       T_n = T_sig;
+      T_vec = [T_vec, T_sig];
 
       if error_n < tol
         break;
