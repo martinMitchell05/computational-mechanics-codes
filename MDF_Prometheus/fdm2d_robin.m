@@ -24,4 +24,39 @@ function [K,F] = fdm2d_robin(K,F,xnode,neighb,ROB)
 % * F: vector de flujo térmico con modificaciones luego de aplicar la condición 
 %   de borde.
 % ----------------------------------------------------------------------
+
+    for i = 1 : size(ROB, 1)
+
+        nodo = ROB(i, 1);
+        S = neighb(nodo, 1);
+        E = neighb(nodo, 2);
+        N = neighb(nodo, 3);
+        W = neighb(nodo, 4);
+
+        h = ROB(i, 2);
+        phi_inf = ROB(i, 3);
+        
+        switch (ROB(i, 4))
+            case 1
+                dy = abs(xnode(N, 2) - xnode(nodo, 2)); % para calcular la distancia en "y" usar la columna 2
+                F(nodo) += 2*h*phi_inf/dy;
+                K(nodo, nodo) += 2*h/dy;     % A lo que habia en el nodo '(i,j)' se le adiciona lo que sale de condicion de Robin 
+                
+            case 2
+                dx = abs(xnode(W, 1) - xnode(nodo, 1));
+                F(nodo) += 2*h*phi_inf/dx;
+                K(nodo, nodo) += 2*h/dx;
+                
+            case 3
+                dy = abs(xnode(S, 2) - xnode(nodo, 2));
+                F(nodo) += 2*h*phi_inf/dy;
+                K(nodo, nodo) += 2*h/dy;
+                
+            case 4
+                dx = abs(xnode(E, 1) - xnode(nodo, 1));
+                F(nodo) += 2*h*phi_inf/dx;
+                K(nodo, nodo) += 2*h/dx;
+        end
+    end
+
 end

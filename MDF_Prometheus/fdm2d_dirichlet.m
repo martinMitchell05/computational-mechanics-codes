@@ -16,12 +16,14 @@ function [K,F] = fdm2d_dirichlet(K,F,DIR)
 %   aplicar la condición de borde Dirichlet.
 % ----------------------------------------------------------------------
 
-    for i = 1:length(F)
+    for i = 1 : size(DIR,1)
 
-        K(DIR(i,1), :) = 0;
-        K(DIR(i,1), 1) = 1;
+        nodo = DIR(i,1);
+        K(nodo, :) = 0;
+        K(nodo, nodo) = 1;
+        F(nodo) = DIR(i, 2);
 
-        F(DIR(i,1)) = DIR(i,2);
+    end
 
 end
 
